@@ -26,7 +26,7 @@
 1.  **安装浏览器扩展**：
     *   Chrome/Edge 用户请安装 [Tampermonkey](https://www.tampermonkey.net/)。
 2.  **安装脚本**：
-    *   点击 [此处安装脚本](https://github.com/LuBanQAQ/chaoxing-script/raw/main/exam_answer_selector.js) (或者手动复制 `exam_answer_selector.js` 代码到 Tampermonkey)。
+    *   点击 [此处安装脚本](https://github.com/LuBanQAQ/chaoxing-script/raw/main/exam_answer_selector.user.js) (或者手动复制 `exam_answer_selector.user.js` 代码到 Tampermonkey)。
 3.  **准备 API**：
     *   你需要一个支持 OpenAI 格式的 API Key（推荐使用 GPT-4o-mini 模型，速度快且成本低）。
 

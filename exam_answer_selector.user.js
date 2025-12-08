@@ -10,6 +10,8 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @updateURL    https://raw.githubusercontent.com/LuBanQAQ/chaoxing-script/main/exam_answer_selector.user.js
+// @downloadURL  https://raw.githubusercontent.com/LuBanQAQ/chaoxing-script/main/exam_answer_selector.user.js
 // ==/UserScript==
 
 (function() {
