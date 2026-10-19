@@ -1,6 +1,6 @@
 # chaoxing-script (超星作业助手)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)[![Tampermonkey](https://img.shields.io/badge/Tampermonkey-Script-green.svg)](https://www.tampermonkey.net/)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE) [![Tampermonkey](https://img.shields.io/badge/Tampermonkey-Script-green.svg)](https://www.tampermonkey.net/)
 
 ## 📖 简介 (Introduction)
 
@@ -56,33 +56,12 @@
 *   **最小化**：点击标题栏右上角的 **➖** 按钮，面板将缩起为一个小机器人图标。
 *   **恢复**：点击小机器人图标即可恢复完整面板。
 
-## 📝 开源协议 (License)
+## 📝 非商业许可 (License)
 
-本项目采用 [MIT License](LICENSE) 开源协议。
+本项目采用 [PolyForm Noncommercial License 1.0.0](LICENSE) 授权，仅允许非商业用途。
+你可以出于允许的非商业目的使用、修改和分发本软件；任何预期的商业应用均不在授权范围内。完整条款以 [LICENSE](LICENSE) 文件为准。
 
-```text
-MIT License
-
-Copyright (c) 2025 LuBanQAQ
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+> 注意：由于包含“仅限非商业使用”的限制，本项目属于源代码可用软件，但不属于 OSI 定义的开源软件。
 
 ## ⚠️ 免责声明 (Disclaimer)
 
