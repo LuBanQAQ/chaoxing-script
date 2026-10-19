@@ -1,10 +1,10 @@
-# chaoxing-script (超星考试助手)
+# chaoxing-script (超星作业助手)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)[![Tampermonkey](https://img.shields.io/badge/Tampermonkey-Script-green.svg)](https://www.tampermonkey.net/)
 
 ## 📖 简介 (Introduction)
 
-**chaoxing-script** 是一个功能强大的 Tampermonkey (油猴) 脚本，专为超星/学习通在线考试设计。它利用先进的 AI 视觉识别技术（支持 GPT-5.1, Gemini 3 Pro等模型），能够自动识别题目内容（包括文字和图片），并智能选择正确答案。
+**chaoxing-script** 是一个功能强大的 Tampermonkey (油猴) 脚本。它利用先进的 AI 视觉识别技术，能够自动识别题目内容（包括文字和图片），并智能选择正确答案。
 
 本脚本不仅支持单题解答，还具备全自动挂机模式，支持自动翻页、自动交卷、断点续传等高级功能，配合现代化的可拖拽、可最小化 GUI 界面，助你轻松应对各种考试场景。
 
