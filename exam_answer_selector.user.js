@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         超星考试选项选择器 (混淆修复版)
+// @name         超星考试选项选择器 (作业页适配版)
 // @namespace    http://tampermonkey.net/
-// @version      1.2
-// @description  自动选择考试选项的油猴脚本，支持混淆选项识别，自动识别选项数量，支持题目截图复制
-// @author       LuBanQAQ
+// @version      1.3.3
+// @description  适配超星作业页逐题处理、停止续跑和已作答题跳过，保留考试页功能
+// @author       LuBanQAQ (原项目), kd587 (作业页适配)
 // @match        https://*.chaoxing.com/*
 // @require      https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js
 // @grant        unsafeWindow
@@ -14,6 +14,10 @@
 // @downloadURL  https://raw.githubusercontent.com/LuBanQAQ/chaoxing-script/main/exam_answer_selector.user.js
 // ==/UserScript==
 
+// Based on LuBanQAQ/chaoxing-script, licensed under PolyForm Noncommercial License 1.0.0.
+// License: https://polyformproject.org/licenses/noncommercial/1.0.0
+// Required Notice: Copyright 2025 LuBan
+
 (function() {
     'use strict';
 
@@ -21,6 +25,25 @@
     let currentOptionsList = [];
     let isAutoRunning = GM_getValue('isAutoRunning', false);
     let autoLoopTimer = null;
+    let homeworkIndex = 0;
+    let autoRunId = 0;
+
+    function isHomeworkPage() {
+        return /\/work\/dowork(?:\/|$)/i.test(location.pathname);
+    }
+
+    function getHomeworkQuestions() {
+        return Array.from(document.querySelectorAll('.singleQuesId')).filter(el =>
+            !el.parentElement?.closest('.singleQuesId') &&
+            el.getClientRects().length > 0
+        );
+    }
+
+    function isHomeworkQuestionAnswered(question) {
+        if (question.querySelector('.num_option.check_answer, .num_option_dx.check_answer')) return true;
+        const blanks = Array.from(question.querySelectorAll('textarea[name^="answerEditor"]'));
+        return blanks.length > 0 && blanks.every(input => input.value.trim() !== '');
+    }
 
     // 默认配置
     const DEFAULT_CONFIG = {
@@ -64,7 +87,7 @@
         GM_setValue('model', model);
         GM_setValue('customBody', customBody);
         showStatus('✅ 配置已保存');
-        
+
         // 隐藏配置面板
         document.getElementById('settings-panel').style.display = 'none';
     }
@@ -229,13 +252,13 @@
                 <!-- AI 操作 -->
                 <div style="border-top: 1px solid #eee; padding-top: 16px;">
                     <h4 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">AI 自动答题</h4>
-                    
+
                     <div style="margin-bottom: 10px;">
                         <button id="ai-solve-one" class="panel-btn" style="width: 100%; padding: 10px; background: #673AB7; color: white; display: flex; align-items: center; justify-content: center; gap: 6px;">
                             <span>🤖</span> 单题解答
                         </button>
                     </div>
-                    
+
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                         <button id="ai-auto-start" class="panel-btn" style="flex: 1; padding: 10px; background: #E91E63; color: white; display: flex; align-items: center; justify-content: center; gap: 6px;">
                             <span>🚀</span> 全自动开始
@@ -244,7 +267,7 @@
                             <span>⏹</span> 停止
                         </button>
                     </div>
-                    
+
                     <div style="display: flex; gap: 8px; align-items: center; background: #f5f7fa; padding: 8px; border-radius: 6px;">
                         <button id="ai-do-submit" class="panel-btn" style="flex: 1; padding: 6px; background: #FF5722; color: white; font-size: 12px;">
                             🏁 交卷
@@ -282,7 +305,7 @@
         let isMinimized = GM_getValue('isMinimized', false);
 
         const header = document.getElementById('panel-header');
-        
+
         // 初始化位置
         setTranslate(xOffset, yOffset, panel);
         setTranslate(xOffset, yOffset, minIcon);
@@ -363,19 +386,22 @@
         // 事件绑定
         document.getElementById('prev-btn').addEventListener('click', prevQuestion);
         document.getElementById('next-btn').addEventListener('click', nextQuestion);
-        
+
         document.getElementById('toggle-settings').addEventListener('click', () => {
             const p = document.getElementById('settings-panel');
             p.style.display = p.style.display === 'none' ? 'block' : 'none';
         });
-        
+
         document.getElementById('save-cfg-btn').addEventListener('click', saveConfig);
-        
+
         document.getElementById('ai-solve-one').addEventListener('click', () => runAI(false));
         document.getElementById('ai-auto-start').addEventListener('click', startAutoLoop);
-        document.getElementById('ai-auto-stop').addEventListener('click', stopAutoLoop);
-        
+        document.getElementById('ai-auto-stop').addEventListener('click', () => stopAutoLoop());
+
         document.getElementById('ai-do-submit').addEventListener('click', submitExam);
+        if (isHomeworkPage()) {
+            document.getElementById('ai-do-submit').parentElement.style.display = 'none';
+        }
         const autoSubmitCheck = document.getElementById('auto-submit-check');
         autoSubmitCheck.checked = GM_getValue('autoSubmit', false);
         autoSubmitCheck.addEventListener('change', (e) => {
@@ -385,6 +411,12 @@
 
     // 导航功能
     function prevQuestion() {
+        if (isHomeworkPage()) {
+            homeworkIndex = Math.max(0, homeworkIndex - 1);
+            getHomeworkQuestions()[homeworkIndex]?.scrollIntoView?.({ block: 'center' });
+            detectOptions();
+            return;
+        }
         const btn = Array.from(document.querySelectorAll('.nextDiv a')).find(el => el.innerText.includes('上一题'));
         if (btn) {
             btn.click();
@@ -396,6 +428,14 @@
     }
 
     function nextQuestion() {
+        if (isHomeworkPage()) {
+            const questions = getHomeworkQuestions();
+            if (homeworkIndex + 1 >= questions.length) return false;
+            homeworkIndex++;
+            questions[homeworkIndex].scrollIntoView?.({ block: 'center' });
+            detectOptions();
+            return true;
+        }
         const btn = Array.from(document.querySelectorAll('.nextDiv a')).find(el => el.innerText.includes('下一题') || el.innerText.includes('下一步'));
         if (btn) {
             btn.click();
@@ -411,13 +451,13 @@
     // 交卷功能
     function submitExam() {
         // 尝试查找交卷按钮
-        const btn = document.querySelector('.completeBtn') || 
+        const btn = document.querySelector('.completeBtn') ||
                     Array.from(document.querySelectorAll('a')).find(el => el.innerText.includes('交卷'));
-        
+
         if (btn) {
             btn.click();
             showStatus('📜 已点击交卷，等待确认...');
-            
+
             // 等待弹窗
             let checkCount = 0;
             const timer = setInterval(() => {
@@ -432,7 +472,7 @@
                         stopAutoLoop();
                     }
                 }
-                
+
                 if (checkCount > 20) { // 10秒超时
                     clearInterval(timer);
                     showStatus('❌ 未检测到交卷确认弹窗，请手动确认');
@@ -448,6 +488,7 @@
 
     // 获取当前题目容器
     function getCurrentQuestionContainer() {
+        if (isHomeworkPage()) return getHomeworkQuestions()[homeworkIndex] || null;
         // 优先获取当前显示的题目（单题模式）
         let container = document.querySelector('.singleQuesId.ans-cc.mainhet');
         // 如果没有，尝试获取第一个题目容器（可能是整卷模式或刚加载）
@@ -461,13 +502,13 @@
     function selectCurrentQuestion(choiceText) {
         if (!choiceText) {
             showStatus('请输入或选择选项');
-            return;
+            return false;
         }
-        
+
         const currentQuestion = getCurrentQuestionContainer();
         if (!currentQuestion) {
             showStatus('未找到题目容器');
-            return;
+            return false;
         }
 
         // 1. 处理填空题 (Fill-in-the-blank)
@@ -475,7 +516,7 @@
         if (textareas.length > 0) {
             const answers = choiceText.split(/\||#|；/); // 支持分隔符
             let filledCount = 0;
-            
+
             textareas.forEach((textarea, index) => {
                 const val = answers[index] !== undefined ? answers[index] : (answers.length === 1 ? answers[0] : '');
                 if (val) {
@@ -494,10 +535,10 @@
                     }
                 }
             });
-            
+
             if (filledCount > 0) {
                 showStatus(`已填充 ${filledCount} 个空`);
-                return;
+                return true;
             }
         }
 
@@ -508,7 +549,7 @@
 
         // 策略：先尝试完全匹配（针对单选或单个输入），如果没找到且输入长度>1，尝试拆分匹配
         let targets = [choice];
-        
+
         // 检查是否存在完全匹配的选项
         let hasExactMatch = false;
         optionSpans.forEach(span => {
@@ -524,7 +565,7 @@
             optionSpans.forEach(span => {
                 const visibleText = span.innerText.trim().toUpperCase();
                 if (visibleText === target.trim()) {
-                    span.click();
+                    if (!(isHomeworkPage() && span.classList.contains('check_answer'))) span.click();
                     foundCount++;
                 }
             });
@@ -532,8 +573,10 @@
 
         if (foundCount > 0) {
             showStatus(`已选择 ${foundCount} 个选项`);
+            return true;
         } else {
             showStatus(`未找到选项: ${choice}`);
+            return false;
         }
     }
 
@@ -542,7 +585,7 @@
         const currentQuestion = getCurrentQuestionContainer();
         const infoDiv = document.getElementById('question-info');
         const btnContainer = document.getElementById('dynamic-buttons');
-        
+
         if (!currentQuestion) {
             if (infoDiv) infoDiv.textContent = "未检测到题目";
             return;
@@ -573,9 +616,9 @@
         // 如果选项列表发生变化，更新 UI
         if (options.join(',') !== currentOptionsList.join(',')) {
             currentOptionsList = options;
-            
+
             if (infoDiv) infoDiv.textContent = `检测到 ${options.length} 个选项`;
-            
+
             if (btnContainer) {
                 btnContainer.setAttribute('data-type', 'choice');
                 btnContainer.innerHTML = '';
@@ -702,11 +745,24 @@
     }
 
     // 运行 AI 答题
-    async function runAI(isAuto) {
-        if (isAuto && !isAutoRunning) return;
+    async function runAI(isAuto, runId = autoRunId) {
+        if (isAuto && (!isAutoRunning || runId !== autoRunId)) return;
+
+        if (isAuto && isHomeworkPage()) {
+            const questions = getHomeworkQuestions();
+            while (homeworkIndex < questions.length && isHomeworkQuestionAnswered(questions[homeworkIndex])) {
+                homeworkIndex++;
+            }
+            if (homeworkIndex >= questions.length) {
+                stopAutoLoop('🏁 作业页已作答题目遍历完毕，请检查并手动保存或提交');
+                return;
+            }
+            questions[homeworkIndex].scrollIntoView?.({ block: 'center' });
+            detectOptions();
+        }
 
         // 优先检测是否到达预览/交卷页面
-        if (isOverviewPage()) {
+        if (!isHomeworkPage() && isOverviewPage()) {
             if (isAuto) {
                 if (GM_getValue('autoSubmit', false)) {
                     showStatus('🏁 检测到试卷预览页面，正在自动交卷...');
@@ -722,7 +778,7 @@
         const currentQuestion = getCurrentQuestionContainer();
         if (!currentQuestion) {
             // 如果是自动模式且未找到题目，尝试检测是否在交卷页面
-            if (isAuto && GM_getValue('autoSubmit', false)) {
+            if (isAuto && !isHomeworkPage() && GM_getValue('autoSubmit', false)) {
                  const submitBtn = document.querySelector('.completeBtn') || Array.from(document.querySelectorAll('a')).find(el => el.innerText.includes('交卷'));
                  if (submitBtn) {
                      showStatus('🏁 检测到交卷按钮，正在自动交卷...');
@@ -737,7 +793,7 @@
         }
 
         showStatus('📷 正在截图...');
-        
+
         try {
             const canvas = await html2canvas(currentQuestion, {
                 useCORS: true,
@@ -746,7 +802,10 @@
                 backgroundColor: '#ffffff'
             });
 
+            if (isAuto && (!isAutoRunning || runId !== autoRunId)) return;
+
             canvas.toBlob(async (blob) => {
+                if (isAuto && (!isAutoRunning || runId !== autoRunId)) return;
                 if (!blob) {
                     showStatus('❌ 截图失败');
                     if (isAuto) stopAutoLoop();
@@ -757,22 +816,32 @@
                 try {
                     const base64 = await blobToBase64(blob);
                     const resultText = await callAIAPI(base64);
-                    
+                    if (isAuto && (!isAutoRunning || runId !== autoRunId)) return;
+
                     // 解析 JSON
                     const cleanJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
                     const data = JSON.parse(cleanJson);
 
                     if (data && data.answer) {
                         showStatus(`✅ AI 答案: ${data.answer}`);
-                        selectCurrentQuestion(data.answer);
+                        if (!selectCurrentQuestion(data.answer)) {
+                            throw new Error('未能填写或选择答案，请检查当前题目');
+                        }
 
-                        if (isAuto) {
-                            showStatus('⏳ 3秒后进入下一题...');
+                        if (isAuto && isAutoRunning && runId === autoRunId) {
+                            const answerDelay = isHomeworkPage() ? 800 : 3000;
+                            const nextLoadDelay = isHomeworkPage() ? 600 : 3000;
+                            showStatus(`⏳ ${answerDelay / 1000}秒后进入下一题...`);
                             autoLoopTimer = setTimeout(() => {
+                                if (!isAutoRunning || runId !== autoRunId) return;
                                 if (nextQuestion()) {
                                     // 等待页面加载后再次运行
-                                    setTimeout(() => runAI(true), 3000); 
+                                    setTimeout(() => runAI(true, runId), nextLoadDelay);
                                 } else {
+                                    if (isHomeworkPage()) {
+                                        stopAutoLoop('🏁 作业页题目已遍历，请检查答案并手动保存或提交');
+                                        return;
+                                    }
                                     // 无法进入下一题，检查是否需要自动交卷
                                     if (GM_getValue('autoSubmit', false)) {
                                         showStatus('🏁 已到达最后，正在自动交卷...');
@@ -782,39 +851,49 @@
                                         stopAutoLoop();
                                     }
                                 }
-                            }, 3000);
+                            }, answerDelay);
                         }
                     } else {
                         throw new Error('未找到 answer 字段');
                     }
                 } catch (e) {
+                    if (isAuto && runId !== autoRunId) return;
                     showStatus(`❌ AI 错误: ${e.message}`);
                     if (isAuto) stopAutoLoop();
                 }
             }, 'image/png');
 
         } catch (e) {
+            if (isAuto && runId !== autoRunId) return;
             showStatus(`❌ 截图错误: ${e.message}`);
             if (isAuto) stopAutoLoop();
         }
     }
 
     function startAutoLoop() {
+        if (isHomeworkPage()) {
+            if (getHomeworkQuestions().length === 0) {
+                showStatus('未找到作业题目，请检查页面结构');
+                return;
+            }
+        }
+        autoRunId++;
         isAutoRunning = true;
         GM_setValue('isAutoRunning', true);
         document.getElementById('ai-auto-start').style.display = 'none';
         document.getElementById('ai-auto-stop').style.display = 'inline-block';
         showStatus('🚀 全自动模式已启动');
-        runAI(true);
+        runAI(true, autoRunId);
     }
 
-    function stopAutoLoop() {
+    function stopAutoLoop(message = '⏹ 全自动模式已停止') {
+        autoRunId++;
         isAutoRunning = false;
         GM_setValue('isAutoRunning', false);
         if (autoLoopTimer) clearTimeout(autoLoopTimer);
         document.getElementById('ai-auto-start').style.display = 'inline-block';
         document.getElementById('ai-auto-stop').style.display = 'none';
-        showStatus('⏹ 全自动模式已停止');
+        showStatus(message);
     }
 
     // 显示状态信息
@@ -834,7 +913,7 @@
     function removeWatermark() {
         const masks = document.querySelectorAll('.mask_div');
         masks.forEach(el => el.remove());
-        
+
         // 针对 ID 匹配
         const allDivs = document.querySelectorAll('div[id^="mask_div"]');
         allDivs.forEach(el => el.remove());
@@ -842,12 +921,13 @@
 
     // 初始化
     function init() {
+        if (document.getElementById('exam-selector-panel')) return;
         createControlPanel();
         // 定时检测题目选项变化（适应动态加载或切题）
         setInterval(detectOptions, 1000);
         // 定时移除水印
         setInterval(removeWatermark, 2000);
-        
+
         // 恢复全自动状态
         if (isAutoRunning) {
             // 检测是否在预览页面
